@@ -15,7 +15,7 @@ export default function Product3DViewer({ createModel }) {
 
         // Scene
         const scene = new THREE.Scene()
-        scene.background = new THREE.Color(0xf4f4f4)
+        // scene.background = new THREE.Color(0xf4f4f4)
 
         // Camera
         const camera = new THREE.PerspectiveCamera(36, mount.clientWidth / mount.clientHeight, 0.1, 100)
@@ -25,14 +25,16 @@ export default function Product3DViewer({ createModel }) {
         // Renderer
         const renderer = new THREE.WebGLRenderer({
             antialias: true,
+            alpha: true,
         })
 
+        renderer.setClearColor(0xffffff, 0)
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         renderer.setSize(mount.clientWidth, mount.clientHeight)
         renderer.outputColorSpace = THREE.SRGBColorSpace
         renderer.toneMapping = THREE.ACESFilmicToneMapping
         renderer.shadowMap.enabled = true
-
+        renderer.shadowMap.type = THREE.PCFShadowMap
         mount.appendChild(renderer.domElement)
 
         // Environment lighting
@@ -49,14 +51,27 @@ export default function Product3DViewer({ createModel }) {
         controls.target.set(0, 0, 0)
 
         // Lights
-        const keyLight = new THREE.DirectionalLight(0xffffff, 3)
+        const keyLight = new THREE.DirectionalLight(0xffffff, 2)
 
-        keyLight.position.set(4, 6, 4)
+        keyLight.position.set(3, 5, 4)
         keyLight.castShadow = true
+
+        keyLight.shadow.mapSize.width = 2048
+        keyLight.shadow.mapSize.height = 2048
+
+        keyLight.shadow.camera.near = 0.1
+        keyLight.shadow.camera.far = 20
+
+        keyLight.shadow.camera.left = -3
+        keyLight.shadow.camera.right = 3
+        keyLight.shadow.camera.top = 3
+        keyLight.shadow.camera.bottom = -3
+
+        keyLight.shadow.bias = -0.0005
 
         scene.add(keyLight)
 
-        const fillLight = new THREE.DirectionalLight(0xffffff, 1.5)
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.5)
 
         fillLight.position.set(-4, 2, -3)
 
@@ -72,6 +87,21 @@ export default function Product3DViewer({ createModel }) {
         const center = box.getCenter(new THREE.Vector3())
 
         model.position.sub(center)
+
+        const centeredBox = new THREE.Box3().setFromObject(model)
+
+        const shadowMaterial = new THREE.ShadowMaterial({
+            color: 0x000000,
+            opacity: 0.18,
+        })
+
+        const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), shadowMaterial)
+
+        shadowPlane.rotation.x = -Math.PI / 2
+        shadowPlane.position.y = centeredBox.min.y - 0.02
+        shadowPlane.receiveShadow = true
+
+        scene.add(shadowPlane)
 
         // Find optional img2threejs animation functions
         const tickers = []
