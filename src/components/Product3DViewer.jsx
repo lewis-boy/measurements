@@ -5,7 +5,13 @@ import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
 
-export default function Product3DViewer({ createModel }) {
+export default function Product3DViewer({
+    createModel,
+    centerModel = true,
+    showFloor = true,
+    enableControls = true,
+    className = "",
+}) {
     const mountRef = useRef(null)
 
     useEffect(() => {
@@ -20,20 +26,21 @@ export default function Product3DViewer({ createModel }) {
         // Camera
         const camera = new THREE.PerspectiveCamera(36, mount.clientWidth / mount.clientHeight, 0.1, 100)
 
-        camera.position.set(2.5, 1.8, 3.5)
+        camera.position.set(0, 0, 17)
 
         // Renderer
         const renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
+            powerPreference: "high-performance",
         })
 
         renderer.setClearColor(0xffffff, 0)
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+        renderer.setPixelRatio(1)
         renderer.setSize(mount.clientWidth, mount.clientHeight)
         renderer.outputColorSpace = THREE.SRGBColorSpace
         renderer.toneMapping = THREE.ACESFilmicToneMapping
-        renderer.shadowMap.enabled = true
+        renderer.shadowMap.enabled = false
         renderer.shadowMap.type = THREE.PCFShadowMap
         mount.appendChild(renderer.domElement)
 
@@ -44,11 +51,12 @@ export default function Product3DViewer({ createModel }) {
         scene.environment = environment
         pmrem.dispose()
 
-        // Camera controls
-        const controls = new OrbitControls(camera, renderer.domElement)
+        // // Camera controls
+        // const controls = new OrbitControls(camera, renderer.domElement)
 
-        controls.enableDamping = true
-        controls.target.set(0, 0, 0)
+        // controls.enableDamping = true
+        // controls.target.set(0, 0, 0)
+        // controls.enabled = enableControls
 
         // Lights
         const keyLight = new THREE.DirectionalLight(0xffffff, 2)
@@ -83,25 +91,26 @@ export default function Product3DViewer({ createModel }) {
         scene.add(model)
 
         // Center model automatically
-        const box = new THREE.Box3().setFromObject(model)
-        const center = box.getCenter(new THREE.Vector3())
+        if (centerModel) {
+            const box = new THREE.Box3().setFromObject(model)
+            const center = box.getCenter(new THREE.Vector3())
+            model.position.sub(center)
+        }
 
-        model.position.sub(center)
+        // const centeredBox = new THREE.Box3().setFromObject(model)
 
-        const centeredBox = new THREE.Box3().setFromObject(model)
+        // const shadowMaterial = new THREE.ShadowMaterial({
+        //     color: 0x000000,
+        //     opacity: 0.18,
+        // })
 
-        const shadowMaterial = new THREE.ShadowMaterial({
-            color: 0x000000,
-            opacity: 0.18,
-        })
+        // const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), shadowMaterial)
 
-        const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), shadowMaterial)
+        // shadowPlane.rotation.x = -Math.PI / 2
+        // shadowPlane.position.y = centeredBox.min.y - 0.02
+        // shadowPlane.receiveShadow = true
 
-        shadowPlane.rotation.x = -Math.PI / 2
-        shadowPlane.position.y = centeredBox.min.y - 0.02
-        shadowPlane.receiveShadow = true
-
-        scene.add(shadowPlane)
+        // scene.add(shadowPlane)
 
         // Find optional img2threejs animation functions
         const tickers = []
@@ -115,22 +124,30 @@ export default function Product3DViewer({ createModel }) {
         const clock = new THREE.Clock()
 
         let animationFrameId
+        let lastFrameTime = 0
 
-        function animate() {
+        const targetFPS = 24
+        const frameInterval = 1000 / targetFPS
+
+        function animate(time) {
             animationFrameId = requestAnimationFrame(animate)
 
-            const delta = clock.getDelta()
-            const elapsed = clock.elapsedTime
-
-            for (const tick of tickers) {
-                tick(delta, elapsed)
+            if (time - lastFrameTime < frameInterval) {
+                return
             }
 
-            controls.update()
+            const delta = Math.min((time - lastFrameTime) / 1000, 0.05)
+
+            lastFrameTime = time
+
+            for (const tick of tickers) {
+                tick(delta)
+            }
+
             renderer.render(scene, camera)
         }
 
-        animate()
+        animationFrameId = requestAnimationFrame(animate)
 
         // Responsive resizing
         const resizeObserver = new ResizeObserver(() => {
@@ -152,7 +169,7 @@ export default function Product3DViewer({ createModel }) {
                 cancelAnimationFrame(animationFrameId)
             }
 
-            controls.dispose()
+            // controls.dispose()
 
             model.traverse((object) => {
                 if (object.geometry) {
@@ -180,7 +197,7 @@ export default function Product3DViewer({ createModel }) {
             ref={mountRef}
             style={{
                 width: "100%",
-                height: "500px",
+                height: "100%",
             }}
         />
     )
